@@ -1,7 +1,7 @@
 
 VERSION=1.4
 
-# CC = gcc
+CC = mipsel-linux-gcc
 CPPFLAGS=-DVERSION_STR=\"$(VERSION)\" -DUUCP_LOCK_DIR=\"/var/lock\"
 CFLAGS = -Wall -g
 

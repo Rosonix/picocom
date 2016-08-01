@@ -23,6 +23,10 @@
  * USA 
  */
 
+/**
+ * The picocom v1.4 has modified by cwsun@rosonix.com to support serial upload to RX350x module
+*/
+
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -62,6 +66,8 @@
 #define STO STDOUT_FILENO
 #define STI STDIN_FILENO
 
+int need_updfrm = 0;
+
 /**********************************************************************/
 
 struct {
@@ -78,13 +84,14 @@ struct {
 	int nolock;
 #endif
 	unsigned char escape;
+	char send_file_name[128];
 	char send_cmd[128];
 	char receive_cmd[128];
 } opts = {
 	.port = "",
-	.baud = 9600,
-	.flow = FC_NONE,
-	.flow_str = "none",
+	.baud = 115200,
+	.flow = FC_RTSCTS,
+	.flow_str = "RTSCTS",
 	.parity = P_NONE,
 	.parity_str = "none",
 	.databits = 8,
@@ -94,7 +101,7 @@ struct {
 	.nolock = 0,
 #endif
 	.escape = '\x01',
-	.send_cmd = "ascii_xfr -s -v -l10",
+	.send_cmd = "lsx -vv",
 	.receive_cmd = "rz -vv"
 };
 
@@ -806,7 +813,7 @@ parse_args(int argc, char *argv[])
 		/* no default error messages printed. */
 		opterr = 0;
 
-		c = getopt_long(argc, argv, "hirls:r:e:f:b:p:d:",
+		c = getopt_long(argc, argv, "hirls:r:e:f:b:p:d:n:",
 						longOptions, &optionIndex);
 
 		if (c < 0)
@@ -902,12 +909,18 @@ parse_args(int argc, char *argv[])
 				break;
 			}
 			break;
+
+                case 'n':
+			need_updfrm = 1;
+                        strcpy(opts.send_file_name, optarg);
+                        break;
+
 		case 'h':
 			show_usage(argv[0]);
 			exit(EXIT_SUCCESS);
 		case '?':
 		default:
-			fprintf(stderr, "Unrecognized option.\n");
+			fprintf(stderr, "cwsun Unrecognized option '%-c'.\n", c);
 			fprintf(stderr, "Run with '--help'.\n");
 			exit(EXIT_FAILURE);
 		}
@@ -982,17 +995,26 @@ main(int argc, char *argv[])
 			  opts.port, term_strerror(term_errno, errno));
 	
 	r = term_add(STI);
+/*
 	if ( r < 0 )
 		fatal("failed to add I/O device: %s", 
 			  term_strerror(term_errno, errno));
+*/
+
 	term_set_raw(STI);
 	r = term_apply(STI);
+/*
 	if ( r < 0 )
 		fatal("failed to set I/O device to raw mode: %s",
 			  term_strerror(term_errno, errno));
+*/
 
 	fd_printf(STO, "Terminal ready\r\n");
-	loop();
+	if(need_updfrm){
+        	run_cmd(tty_fd, opts.send_cmd, opts.send_file_name, NULL);
+	}else{
+		loop();
+	}
 
 	fd_printf(STO, "\r\n");
 	if ( opts.noreset ) {
